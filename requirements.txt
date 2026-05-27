@@ -1,0 +1,8 @@
+lcu-driver
+openai
+python-dotenv
+pandas
+requests
+pytest
+pytest-asyncio
+ruff

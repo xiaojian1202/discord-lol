@@ -1,0 +1,88 @@
+import asyncio
+import logging
+from lcu_driver import Connector
+from typing import Dict, List, Optional, Callable
+
+class LCUListener:
+    def __init__(self, on_enemy_pick: Optional[Callable[[Dict], None]] = None):
+        self.connector: Optional[Connector] = None
+        self.on_enemy_pick = on_enemy_pick
+        self.last_enemy_pick: Optional[int] = None
+        self.current_session: Dict = {}
+
+    def _setup_connector(self):
+        if self.connector:
+            return
+            
+        self.connector = Connector()
+        # Register events
+        self.connector.ready(self._on_ready)
+        
+        # Using the register method as a decorator to register the callback
+        @self.connector.ws.register('/lol-champ-select/v1/session', event_types=('UPDATE',))
+        async def session_update_wrapper(connection, event):
+            await self._on_session_update(connection, event)
+
+    async def _on_ready(self, connection):
+        logging.info("LCU API is ready.")
+        # Initial check
+        res = await connection.request('get', '/lol-champ-select/v1/session')
+        if res.status == 200:
+            data = await res.json()
+            await self._on_session_update(connection, {"data": data})
+
+    async def _on_session_update(self, connection, event):
+        data = event.get('data')
+        if not data:
+            return
+            
+        self.current_session = data
+        
+        if self.is_new_enemy_pick(data):
+            logging.info(f"New enemy pick detected: {self.last_enemy_pick}")
+            if self.on_enemy_pick:
+                state = self.parse_session(data)
+                # Ensure we run the callback (which might be async)
+                if asyncio.iscoroutinefunction(self.on_enemy_pick):
+                    await self.on_enemy_pick(state)
+                else:
+                    self.on_enemy_pick(state)
+
+    def is_new_enemy_pick(self, data: Dict) -> bool:
+        """
+        Detects if a new enemy champion has been locked in.
+        """
+        # Look through actions for completed enemy picks
+        enemy_picks = []
+        for action_group in data.get('actions', []):
+            for action in action_group:
+                if action['type'] == 'pick' and action['completed'] and not action['isAllyAction']:
+                    enemy_picks.append(action['championId'])
+        
+        if not enemy_picks:
+            return False
+            
+        latest_pick = enemy_picks[-1]
+        if latest_pick != self.last_enemy_pick and latest_pick != 0:
+            self.last_enemy_pick = latest_pick
+            return True
+            
+        return False
+
+    def parse_session(self, data: Dict) -> Dict:
+        """
+        Extracts relevant draft state from the LCU session data.
+        """
+        our_team = [p['championId'] for p in data.get('myTeam', []) if p['championId'] != 0]
+        enemy_team = [p['championId'] for p in data.get('theirTeam', []) if p['championId'] != 0]
+        
+        return {
+            "our_team": our_team,
+            "enemy_team": enemy_team,
+            "last_enemy_pick": self.last_enemy_pick
+        }
+
+    def start(self):
+        logging.info("Starting LCU Listener...")
+        self._setup_connector()
+        self.connector.start()
