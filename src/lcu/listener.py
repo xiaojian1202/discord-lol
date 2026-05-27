@@ -29,10 +29,15 @@ class LCUListener:
         res = await connection.request('get', '/lol-champ-select/v1/session')
         if res.status == 200:
             data = await res.json()
-            await self._on_session_update(connection, {"data": data})
+            # Create a simple wrapper to match the expected event object structure
+            class MockEvent:
+                def __init__(self, data):
+                    self.data = data
+            await self._on_session_update(connection, MockEvent(data))
 
     async def _on_session_update(self, connection, event):
-        data = event.get('data')
+        # event is a WebsocketEventResponse object, which has a .data attribute
+        data = event.data
         if not data:
             return
             
