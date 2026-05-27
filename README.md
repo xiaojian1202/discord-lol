@@ -13,6 +13,7 @@ A Python-based drafting coach that monitors League of Legends champion select an
 - League of Legends Client (must be running for the bot to work)
 - Triton GPT API access
 - Discord Webhook URL
+- **Dataset:** [League of Legends Relational Database (Kaggle)](https://www.kaggle.com/datasets/nathansmallcalder/lol-match-history-and-summoner-data-80k-matches)
 
 ## Setup
 
@@ -32,8 +33,9 @@ cp .env.example .env
 
 ### 3. Data Ingestion
 The bot requires a local SQLite database built from the Kaggle dataset.
-1. Place your CSV files (`MatchStatsTbl.csv`, `ChampionTbl.csv`, `SummonerMatchTbl.csv`) into `data/raw/`.
-2. Run the ingestion script:
+1. Download the dataset from [Kaggle](https://www.kaggle.com/datasets/nathansmallcalder/lol-match-history-and-summoner-data-80k-matches).
+2. Extract the files and place `MatchStatsTbl.csv`, `ChampionTbl.csv`, and `SummonerMatchTbl.csv` into the `data/raw/` directory.
+3. Run the ingestion script:
 ```bash
 python3 -m src.scripts.init_db --match-stats data/raw/MatchStatsTbl.csv --champions data/raw/ChampionTbl.csv --summoner-matches data/raw/SummonerMatchTbl.csv
 ```
