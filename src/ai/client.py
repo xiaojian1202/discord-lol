@@ -45,4 +45,5 @@ Based on this, provide a concise (1-2 sentences) recommendation for our next pic
         max_tokens=150
     )
     
-    return response.choices[0].message.content.strip()
+    content = response.choices[0].message.content
+    return content.strip() if content else "AI provided an empty recommendation. Please consider picking a general counter."
