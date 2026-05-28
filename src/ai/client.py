@@ -33,8 +33,10 @@ Statistically strong counters for the enemy picks:
 Based on this, provide a concise (1-2 sentences) recommendation for our next pick. Focus on why the counter is strong or how it fits our current team composition.
 """
 
+    model_name = os.getenv("TRITON_MODEL", "AWS Instructional")
+
     response = client.chat.completions.create(
-        model="gpt-4o", # Model name might need adjustment for Triton
+        model=model_name,
         messages=[
             {"role": "system", "content": "You are a professional League of Legends drafting coach."},
             {"role": "user", "content": prompt}
