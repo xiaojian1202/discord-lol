@@ -30,7 +30,7 @@ def test_get_ai_recommendation(mock_openai):
     
     # Check if prompt contains the data
     args, kwargs = mock_client.chat.completions.create.call_args
-    prompt = kwargs['messages'][1]['content']
+    prompt = kwargs['messages'][0]['content'] # Changed from [1] to [0] as there's no system message now
     assert "Zed" in prompt
     assert "Annie" in prompt
     assert "Malphite" in prompt
