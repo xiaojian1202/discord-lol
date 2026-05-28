@@ -9,6 +9,10 @@ def process_matchups(match_stats: pd.DataFrame, champions: pd.DataFrame, summone
     Processes match statistics, champion data, and summoner-match links.
     """
     # 1. Prepare champions table
+    # Standardize column name to ChampionID if it is ChampionId
+    if 'ChampionId' in champions.columns:
+        champions = champions.rename(columns={'ChampionId': 'ChampionID'})
+        
     conn = sqlite3.connect(db_path)
     champions.to_sql('champions', conn, if_exists='replace', index=False)
     

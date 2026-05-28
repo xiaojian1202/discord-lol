@@ -2,6 +2,8 @@ import os
 import sqlite3
 import logging
 import asyncio
+import traceback
+from typing import Dict
 from dotenv import load_dotenv
 from src.lcu.listener import LCUListener
 from src.database.query import get_counters
@@ -17,6 +19,7 @@ class Orchestrator:
     def __init__(self):
         self.db_path = os.getenv("DATABASE_PATH", "data/matchups.db")
         self.listener = LCUListener(on_enemy_pick=self.handle_enemy_pick)
+        self.name_cache: Dict[int, str] = {}
 
     async def handle_enemy_pick(self, state: dict):
         last_pick_id = state.get("last_enemy_pick")
@@ -55,8 +58,12 @@ class Orchestrator:
             send_discord_message(recommendation)
         except Exception as e:
             logging.error(f"Error generating or sending recommendation: {e}")
+            logging.error(traceback.format_exc())
 
     def resolve_champion_name(self, champion_id: int) -> str:
+        if champion_id in self.name_cache:
+            return self.name_cache[champion_id]
+
         if not os.path.exists(self.db_path):
             return str(champion_id)
             
@@ -65,7 +72,10 @@ class Orchestrator:
         try:
             cursor.execute("SELECT ChampionName FROM champions WHERE ChampionID = ?", (champion_id,))
             row = cursor.fetchone()
-            return row[0] if row else None
+            name = row[0] if row else None
+            if name:
+                self.name_cache[champion_id] = name
+            return name
         finally:
             conn.close()
 

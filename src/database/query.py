@@ -21,8 +21,13 @@ def get_counters(champion_name: str, db_path: str = DEFAULT_DB_PATH, limit: int 
 
     try:
         # 1. Get the ID of the target champion
-        cursor.execute("SELECT ChampionID FROM champions WHERE ChampionName = ?", (champion_name,))
-        row = cursor.fetchone()
+        try:
+            cursor.execute("SELECT ChampionID FROM champions WHERE ChampionName = ?", (champion_name,))
+            row = cursor.fetchone()
+        except sqlite3.OperationalError:
+            # Table probably doesn't exist
+            return []
+            
         if not row:
             return []
         

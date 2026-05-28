@@ -16,6 +16,10 @@ def send_discord_message(content: str, webhook_url: Optional[str] = None) -> boo
         logging.error("Discord Webhook URL not provided.")
         return False
         
+    # Discord limit is 2000 chars
+    if len(content) > 1990:
+        content = content[:1987] + "..."
+        
     payload = {
         "content": content,
         "username": "LoL Draft Coach",
