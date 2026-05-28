@@ -94,10 +94,30 @@ class LCUListener:
 
     def parse_session(self, data: Dict) -> Dict:
         """
-        Extracts relevant draft state from the LCU session data.
+        Extracts relevant draft state from the LCU session data, including roles.
         """
-        our_team = [p['championId'] for p in data.get('myTeam', []) if p['championId'] != 0]
-        enemy_team = [p['championId'] for p in data.get('theirTeam', []) if p['championId'] != 0]
+        role_map = {
+            "top": "Top",
+            "jungle": "Jng",
+            "middle": "Mid",
+            "bottom": "ADC",
+            "utility": "Sup"
+        }
+
+        def get_team_roles(team_data):
+            team_dict = {}
+            for p in team_data:
+                cid = p.get('championId', 0)
+                pos = p.get('assignedPosition', '').lower()
+                if cid != 0 and pos in role_map:
+                    team_dict[role_map[pos]] = cid
+                elif cid != 0:
+                    # Fallback for modes without assigned positions
+                    team_dict[f"Pick_{p.get('cellId')}"] = cid
+            return team_dict
+
+        our_team = get_team_roles(data.get('myTeam', []))
+        enemy_team = get_team_roles(data.get('theirTeam', []))
         
         return {
             "our_team": our_team,

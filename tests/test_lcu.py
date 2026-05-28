@@ -16,12 +16,12 @@ def test_lcu_listener_parse_session(mock_connector):
     # Mock session data
     session_data = {
         "myTeam": [
-            {"championId": 1, "cellId": 0},
-            {"championId": 0, "cellId": 1}
+            {"championId": 1, "cellId": 0, "assignedPosition": "top"},
+            {"championId": 0, "cellId": 1, "assignedPosition": "jungle"}
         ],
         "theirTeam": [
-            {"championId": 2, "cellId": 5},
-            {"championId": 0, "cellId": 6}
+            {"championId": 2, "cellId": 5, "assignedPosition": "middle"},
+            {"championId": 0, "cellId": 6, "assignedPosition": "bottom"}
         ],
         "actions": [
             [
@@ -34,8 +34,8 @@ def test_lcu_listener_parse_session(mock_connector):
     listener.is_new_enemy_pick(session_data)
     state = listener.parse_session(session_data)
     
-    assert state['our_team'] == [1]
-    assert state['enemy_team'] == [2]
+    assert state['our_team'] == {"Top": 1}
+    assert state['enemy_team'] == {"Mid": 2}
     assert listener.last_enemy_pick == 2
 
 def test_lcu_listener_detect_new_pick(mock_connector):

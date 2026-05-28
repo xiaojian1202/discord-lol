@@ -3,7 +3,7 @@ import sqlite3
 import logging
 import asyncio
 import traceback
-from typing import Dict
+from typing import Dict, Optional
 from dotenv import load_dotenv
 from src.lcu.listener import LCUListener
 from src.database.query import get_counters
@@ -21,37 +21,43 @@ class Orchestrator:
         self.listener = LCUListener(on_enemy_pick=self.handle_enemy_pick)
         self.name_cache: Dict[int, str] = {}
 
-    async def handle_enemy_pick(self, state: dict):
+    async def handle_enemy_pick(self, state: dict, target_role: Optional[str] = None):
         last_pick_id = state.get("last_enemy_pick")
-        if not last_pick_id:
-            return
-
-        # 1. Resolve champion ID to name
-        champion_name = self.resolve_champion_name(last_pick_id)
-        if not champion_name:
-            logging.warning(f"Could not resolve champion name for ID: {last_pick_id}")
-            return
-
-        logging.info(f"Processing recommendation for enemy pick: {champion_name}")
-
-        # 2. Get our and enemy team names for context
-        our_team_names = [self.resolve_champion_name(cid) for cid in state.get("our_team", [])]
-        enemy_team_names = [self.resolve_champion_name(cid) for cid in state.get("enemy_team", [])]
+        # If we have a target_role, we might not have a last_enemy_pick (e.g. if we are first and asking for advice)
+        # but for now logic is triggered on pick.
         
-        draft_state_names = {
-            "our_team": [n for n in our_team_names if n],
-            "enemy_team": [n for n in enemy_team_names if n]
-        }
+        champion_name = None
+        if last_pick_id:
+            champion_name = self.resolve_champion_name(last_pick_id)
+            if champion_name:
+                logging.info(f"Processing recommendation for enemy pick: {champion_name}")
+            else:
+                logging.warning(f"Could not resolve champion name for ID: {last_pick_id}")
 
-        # 3. Get top counters from SQLite
-        counters = get_counters(champion_name, db_path=self.db_path)
-        if not counters:
-            logging.info(f"No specific counter data found for {champion_name}")
-            # We can still ask the AI for general advice
+        # 2. Convert ID dictionaries to name dictionaries
+        our_team_ids = state.get("our_team", {})
+        enemy_team_ids = state.get("enemy_team", {})
+        
+        our_team_names = {role: self.resolve_champion_name(cid) for role, cid in our_team_ids.items()}
+        enemy_team_names = {role: self.resolve_champion_name(cid) for role, cid in enemy_team_ids.items()}
+        
+        # Filter out None names
+        our_team_names = {r: n for r, n in our_team_names.items() if n}
+        enemy_team_names = {r: n for r, n in enemy_team_names.items() if n}
+
+        # 3. Get top counters from SQLite for the last enemy pick
+        counters = []
+        if champion_name:
+            counters = get_counters(champion_name, db_path=self.db_path)
         
         # 4. Generate AI recommendation
         try:
-            recommendation = get_ai_recommendation(draft_state_names, counters)
+            recommendation = get_ai_recommendation(
+                our_team_names, 
+                enemy_team_names, 
+                counters, 
+                target_role=target_role
+            )
             logging.info(f"AI Recommendation: {recommendation}")
             
             # 5. Send to Discord

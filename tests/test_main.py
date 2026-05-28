@@ -26,8 +26,8 @@ async def test_orchestrator_handle_enemy_pick(mock_sqlite, mock_send, mock_ai, m
     orchestrator = Orchestrator()
     
     state = {
-        "our_team": [1],
-        "enemy_team": [2],
+        "our_team": {"Top": 1},
+        "enemy_team": {"Mid": 2},
         "last_enemy_pick": 2
     }
     

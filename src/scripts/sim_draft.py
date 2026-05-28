@@ -133,34 +133,51 @@ class DraftSimulator:
 
                 print(f"\n[{total_picks}/10] {team_side} Team is picking for {current_lane}...")
 
-                # Is it the user?
-                if team_side == self.user_team and current_lane == self.user_lane:
-                    while True:
-                        pick = input(f"--> YOUR TURN! Enter your champion for {current_lane}: ").strip().title()
-                        # Handle some common name variations
-                        if pick == "Kaisa": pick = "Kai'Sa"
-                        if pick == "Khazix": pick = "Kha'Zix"
-                        
-                        all_picked = list(self.blue_team.values()) + list(self.red_team.values())
-                        if pick in all_picked:
-                            print(f"{pick} is already picked. Choose another.")
-                        else:
-                            team_dict[current_lane] = pick
-                            break
-                else:
-                    # Bot pick
-                    pick = self.get_viable_pick(current_lane, team_dict, opp_dict)
-                    team_dict[current_lane] = pick
-                    print(f"--> {team_side} Bot picked {pick}")
+            # Is it the user's turn?
+            if team_side == self.user_team and current_lane == self.user_lane:
+                print(f"--> Generating recommendation for YOUR pick ({current_lane})...")
+                
+                # Construct state for recommendation
+                user_side_dict = self.blue_team if self.user_team == "Blue" else self.red_team
+                enemy_side_dict = self.red_team if self.user_team == "Blue" else self.blue_team
+                
+                # For User recommendation, there is no "last enemy pick" to counter, 
+                # but there might be existing enemies. Construct state from user's perspective.
+                state = {
+                    "our_team": {role: self.get_id(champ) for role, champ in user_side_dict.items()},
+                    "enemy_team": {role: self.get_id(champ) for role, champ in enemy_side_dict.items()},
+                    "last_enemy_pick": None # Or use the most recent enemy pick if any
+                }
+                
+                # Trigger recommendation for the user's specific lane
+                await self.orchestrator.handle_enemy_pick(state, target_role=current_lane)
+                
+                while True:
+                    pick = input(f"--> YOUR TURN! Enter your champion for {current_lane}: ").strip().title()
+                    # Handle some common name variations
+                    if pick == "Kaisa": pick = "Kai'Sa"
+                    if pick == "Khazix": pick = "Kha'Zix"
+                    
+                    all_picked = list(self.blue_team.values()) + list(self.red_team.values())
+                    if pick in all_picked:
+                        print(f"{pick} is already picked. Choose another.")
+                    else:
+                        team_dict[current_lane] = pick
+                        break
+            else:
+                # Bot pick
+                pick = self.get_viable_pick(current_lane, team_dict, opp_dict)
+                team_dict[current_lane] = pick
+                print(f"--> {team_side} Bot picked {pick}")
 
-                # If it's an ENEMY pick, trigger Orchestrator
+                # If it's an ENEMY pick, trigger Orchestrator recommendation for our team
                 if team_side != self.user_team:
                     user_side_dict = self.blue_team if self.user_team == "Blue" else self.red_team
                     enemy_side_dict = self.red_team if self.user_team == "Blue" else self.blue_team
                     
                     real_state = {
-                        "our_team": [self.get_id(c) for c in user_side_dict.values()],
-                        "enemy_team": [self.get_id(c) for c in enemy_side_dict.values()],
+                        "our_team": {role: self.get_id(champ) for role, champ in user_side_dict.items()},
+                        "enemy_team": {role: self.get_id(champ) for role, champ in enemy_side_dict.items()},
                         "last_enemy_pick": self.get_id(pick)
                     }
                     await self.orchestrator.handle_enemy_pick(real_state)

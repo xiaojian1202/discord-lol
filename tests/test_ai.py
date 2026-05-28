@@ -15,16 +15,14 @@ def test_get_ai_recommendation(mock_openai):
     mock_client.chat.completions.create.return_value = mock_response
     
     # Test data
-    draft_state = {
-        "our_team": ["Malphite"],
-        "enemy_team": ["Annie"]
-    }
+    our_team = {"Top": "Malphite"}
+    enemy_team = {"Mid": "Annie"}
     counters = [
         {"name": "Zed", "win_rate": 0.6, "total_games": 100},
         {"name": "Olaf", "win_rate": 0.55, "total_games": 150}
     ]
     
-    recommendation = get_ai_recommendation(draft_state, counters)
+    recommendation = get_ai_recommendation(our_team, enemy_team, counters, target_role="Mid")
     
     assert "Zed" in recommendation
     assert "Annie" in recommendation
@@ -36,3 +34,4 @@ def test_get_ai_recommendation(mock_openai):
     assert "Zed" in prompt
     assert "Annie" in prompt
     assert "Malphite" in prompt
+    assert "specifically for the Mid role" in prompt

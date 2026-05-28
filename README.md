@@ -53,6 +53,13 @@ python3 -m src.main
 python3 -m pytest
 ```
 
+### Draft Simulator (Mock Lobby)
+To test the bot's AI logic and Discord integration without opening League of Legends:
+```bash
+python3 -m src.scripts.sim_draft
+```
+Follow the terminal prompts to select your lane and pick champions. The simulator will automatically trigger the bot's reasoning whenever a "bot" enemy locks in.
+
 ## Project Structure
 - `src/lcu/`: Riot Client interaction logic.
 - `src/database/`: SQLite query module.

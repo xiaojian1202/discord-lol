@@ -5,32 +5,46 @@ from typing import List, Dict, Any
 
 load_dotenv()
 
-def get_ai_recommendation(draft_state: Dict[str, List[str]], counters: List[Dict[str, Any]]) -> str:
+def get_ai_recommendation(
+    our_team: Dict[str, str], 
+    enemy_team: Dict[str, str], 
+    counters: List[Dict[str, Any]],
+    target_role: Optional[str] = None
+) -> str:
     """
     Generates a concise drafting recommendation using Triton GPT.
+    our_team/enemy_team: Dict mapping role -> champion_name
     """
     api_key = os.getenv("TRITON_API_KEY", "dummy")
     base_url = os.getenv("TRITON_BASE_URL", "https://api.openai.com/v1")
     
     client = OpenAI(api_key=api_key, base_url=base_url)
     
-    our_team = ", ".join(draft_state.get("our_team", []))
-    enemy_team = ", ".join(draft_state.get("enemy_team", []))
+    our_team_str = ", ".join([f"{r}: {c}" for r, c in our_team.items()]) if our_team else "None"
+    enemy_team_str = ", ".join([f"{r}: {c}" for r, c in enemy_team.items()]) if enemy_team else "None"
     
     counter_info = "\n".join([
         f"- {c['name']} (Win rate vs enemy: {c['win_rate']:.1%}, games: {c['total_games']})"
         for c in counters
     ])
     
+    target_clause = f" specifically for the {target_role} role" if target_role else ""
+    roles_list = ["Top", "Jng", "Mid", "ADC", "Sup"]
+    available_roles = [r for r in roles_list if r not in our_team]
+    
     prompt = f"""
 Current LoL Draft State:
-Our Team: {our_team if our_team else "None yet"}
-Enemy Team: {enemy_team if enemy_team else "None yet"}
+Our Team: {our_team_str}
+Enemy Team: {enemy_team_str}
+
+Available Roles on Our Team: {available_roles}
 
 Statistically strong counters for the enemy picks:
 {counter_info}
 
-Based on this, provide a concise (1-2 sentences) recommendation for our next pick. Focus on why the counter is strong or how it fits our current team composition.
+Based on this, provide a concise (1-2 sentences) recommendation for our next pick{target_clause}. 
+CRITICAL: Do NOT recommend a champion for a role that is already filled on our team.
+Focus on why the pick is strong against their composition or how it synergizes with ours.
 """
 
     model_name = os.getenv("TRITON_MODEL", "AWS Instructional")
@@ -38,7 +52,7 @@ Based on this, provide a concise (1-2 sentences) recommendation for our next pic
     response = client.chat.completions.create(
         model=model_name,
         messages=[
-            {"role": "system", "content": "You are a professional League of Legends drafting coach."},
+            {"role": "system", "content": "You are a professional League of Legends drafting coach. You are expert at role-based drafting and team composition."},
             {"role": "user", "content": prompt}
         ],
         temperature=0.7,
@@ -46,4 +60,4 @@ Based on this, provide a concise (1-2 sentences) recommendation for our next pic
     )
     
     content = response.choices[0].message.content
-    return content.strip() if content else "AI provided an empty recommendation. Please consider picking a general counter."
+    return content.strip() if content else "AI provided an empty recommendation."
