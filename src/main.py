@@ -87,11 +87,16 @@ if __name__ == "__main__":
     if not os.path.exists("data/matchups.db"):
         logging.warning("Database data/matchups.db not found. Please run src/scripts/init_db.py first.")
     
-    # Create the orchestrator - this should no longer trigger a RuntimeError
-    # since Connector() is now lazy-loaded in listener.py
+    # Create and set a new event loop for the current thread
+    # This resolves the 'no current event loop' error in Python 3.10+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     orchestrator = Orchestrator()
     
     try:
         orchestrator.run()
     except KeyboardInterrupt:
         logging.info("Bot stopped by user.")
+    finally:
+        loop.close()
