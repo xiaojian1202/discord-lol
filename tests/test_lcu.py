@@ -30,8 +30,8 @@ def test_lcu_listener_parse_session(mock_connector):
         ]
     }
     
-    # We must call is_new_enemy_pick to update last_enemy_pick
-    listener.is_new_enemy_pick(session_data)
+    # We must call check_for_updates to update last_enemy_pick
+    listener.check_for_updates(session_data)
     state = listener.parse_session(session_data)
     
     assert state['our_team'] == {"Top": 1}
@@ -48,8 +48,29 @@ def test_lcu_listener_detect_new_pick(mock_connector):
         "actions": [[{"championId": 2, "completed": True, "type": "pick", "actorCellId": 5, "isAllyAction": False}]]
     }
     
-    assert listener.is_new_enemy_pick(session_data) is True
+    assert listener.check_for_updates(session_data) == "enemy_pick"
     assert listener.last_enemy_pick == 2
     
-    # Same pick again
-    assert listener.is_new_enemy_pick(session_data) is False
+def test_lcu_listener_detect_our_turn(mock_connector):
+    listener = LCUListener()
+    
+    # User is cellId 0
+    session_data = {
+        "localPlayerCellId": 0,
+        "actions": [
+            [
+                {"id": 10, "actorCellId": 0, "completed": False, "type": "pick", "isAllyAction": True}
+            ]
+        ]
+    }
+    
+    assert listener.check_for_updates(session_data) == "our_turn"
+    assert listener.last_action_id == 10
+    
+    # Same action again
+    assert listener.check_for_updates(session_data) is None
+    
+    # Different action ID
+    session_data["actions"][0][0]["id"] = 11
+    assert listener.check_for_updates(session_data) == "our_turn"
+    assert listener.last_action_id == 11

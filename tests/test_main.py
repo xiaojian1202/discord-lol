@@ -34,6 +34,6 @@ async def test_orchestrator_handle_enemy_pick(mock_sqlite, mock_send, mock_ai, m
     await orchestrator.handle_enemy_pick(state)
     
     # Verify the flow
-    mock_counters.assert_called_once_with("Annie", db_path='data/matchups.db')
+    mock_counters.assert_called_once_with("Annie", db_path='data/matchups.db', limit=3)
     mock_ai.assert_called_once()
     mock_send.assert_called_once_with("Pick Zed!")

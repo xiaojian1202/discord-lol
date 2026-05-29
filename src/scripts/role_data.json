@@ -1,0 +1,548 @@
+{
+    "ROLE_CHAMPIONS": {
+        "Top": [
+            "Aatrox",
+            "Ambessa",
+            "Camille",
+            "Chogath",
+            "Darius",
+            "DrMundo",
+            "Fiora",
+            "Gangplank",
+            "Garen",
+            "Gnar",
+            "Gragas",
+            "Gwen",
+            "Heimerdinger",
+            "Illaoi",
+            "Irelia",
+            "Jax",
+            "KSante",
+            "Kayle",
+            "Kennen",
+            "Kled",
+            "Mordekaiser",
+            "Nasus",
+            "Olaf",
+            "Ornn",
+            "Quinn",
+            "Renekton",
+            "Riven",
+            "Rumble",
+            "Sett",
+            "Shen",
+            "Singed",
+            "Sion",
+            "Teemo",
+            "Tryndamere",
+            "Urgot",
+            "Vladimir",
+            "Volibear",
+            "Yorick",
+            "Zaahen"
+        ],
+        "Mid": [
+            "Ahri",
+            "Akali",
+            "Akshan",
+            "Anivia",
+            "Annie",
+            "AurelionSol",
+            "Aurora",
+            "Azir",
+            "Cassiopeia",
+            "Fizz",
+            "Galio",
+            "Hwei",
+            "Kassadin",
+            "Katarina",
+            "Leblanc",
+            "Lissandra",
+            "Malzahar",
+            "Mel",
+            "Naafiri",
+            "Orianna",
+            "Ryze",
+            "Syndra",
+            "Taliyah",
+            "TwistedFate",
+            "Veigar",
+            "Vex",
+            "Viktor",
+            "Xerath",
+            "Yasuo",
+            "Yone",
+            "Zed",
+            "Zoe"
+        ],
+        "Sup": [
+            "Alistar",
+            "Blitzcrank",
+            "Braum",
+            "Karma",
+            "Leona",
+            "Lulu",
+            "Lux",
+            "Maokai",
+            "Morgana",
+            "Nautilus",
+            "Neeko",
+            "Pantheon",
+            "Poppy",
+            "Pyke",
+            "Rakan",
+            "Rell",
+            "Seraphine",
+            "Sona",
+            "Soraka",
+            "Swain",
+            "TahmKench",
+            "Thresh",
+            "Velkoz",
+            "Yuumi",
+            "Zilean",
+            "Zyra"
+        ],
+        "Jng": [
+            "Amumu",
+            "Belveth",
+            "Briar",
+            "Diana",
+            "Ekko",
+            "Elise",
+            "Evelynn",
+            "Fiddlesticks",
+            "Graves",
+            "Hecarim",
+            "Ivern",
+            "JarvanIV",
+            "Jayce",
+            "Karthus",
+            "Kayn",
+            "Khazix",
+            "Kindred",
+            "LeeSin",
+            "Lillia",
+            "Malphite",
+            "MasterYi",
+            "MonkeyKing",
+            "Nidalee",
+            "Nocturne",
+            "Nunu",
+            "Qiyana",
+            "Rammus",
+            "RekSai",
+            "Rengar",
+            "Sejuani",
+            "Shaco",
+            "Shyvana",
+            "Skarner",
+            "Sylas",
+            "Talon",
+            "Trundle",
+            "Udyr",
+            "Vi",
+            "Viego",
+            "Warwick",
+            "XinZhao",
+            "Zac"
+        ],
+        "ADC": [
+            "Aphelios",
+            "Ashe",
+            "Bard",
+            "Brand",
+            "Caitlyn",
+            "Corki",
+            "Draven",
+            "Ezreal",
+            "Janna",
+            "Jhin",
+            "Jinx",
+            "Kaisa",
+            "Kalista",
+            "KogMaw",
+            "Lucian",
+            "Milio",
+            "MissFortune",
+            "Nami",
+            "Nilah",
+            "Renata",
+            "Samira",
+            "Senna",
+            "Sivir",
+            "Smolder",
+            "Taric",
+            "Tristana",
+            "Twitch",
+            "Varus",
+            "Vayne",
+            "Xayah",
+            "Yunara",
+            "Zeri",
+            "Ziggs"
+        ]
+    },
+    "FLEX_CHAMPIONS": {
+        "Aatrox": [
+            "Top",
+            "Jng"
+        ],
+        "Akali": [
+            "Mid",
+            "Top"
+        ],
+        "Alistar": [
+            "Sup",
+            "ADC"
+        ],
+        "Ambessa": [
+            "Top",
+            "Jng"
+        ],
+        "Anivia": [
+            "Mid",
+            "Top"
+        ],
+        "Aurora": [
+            "Mid",
+            "Top"
+        ],
+        "Bard": [
+            "ADC",
+            "Sup"
+        ],
+        "Blitzcrank": [
+            "Sup",
+            "ADC"
+        ],
+        "Brand": [
+            "ADC",
+            "Sup"
+        ],
+        "Braum": [
+            "Sup",
+            "ADC"
+        ],
+        "Cassiopeia": [
+            "Mid",
+            "Top"
+        ],
+        "Chogath": [
+            "Top",
+            "Mid"
+        ],
+        "Corki": [
+            "ADC",
+            "Mid"
+        ],
+        "Diana": [
+            "Jng",
+            "Mid"
+        ],
+        "DrMundo": [
+            "Top",
+            "Jng"
+        ],
+        "Ekko": [
+            "Jng",
+            "Mid"
+        ],
+        "Elise": [
+            "Jng",
+            "Sup"
+        ],
+        "Gragas": [
+            "Top",
+            "Jng"
+        ],
+        "Gwen": [
+            "Top",
+            "Jng"
+        ],
+        "Heimerdinger": [
+            "Top",
+            "Mid"
+        ],
+        "Irelia": [
+            "Top",
+            "Mid"
+        ],
+        "Janna": [
+            "ADC",
+            "Sup"
+        ],
+        "Jax": [
+            "Top",
+            "Jng"
+        ],
+        "Jayce": [
+            "Jng",
+            "Top"
+        ],
+        "Kalista": [
+            "ADC",
+            "Top"
+        ],
+        "Karma": [
+            "Sup",
+            "ADC"
+        ],
+        "Kassadin": [
+            "Mid",
+            "Top"
+        ],
+        "Kayle": [
+            "Top",
+            "Mid"
+        ],
+        "Kennen": [
+            "Top",
+            "Mid"
+        ],
+        "KogMaw": [
+            "ADC",
+            "Mid"
+        ],
+        "Leona": [
+            "Sup",
+            "ADC"
+        ],
+        "Lulu": [
+            "Sup",
+            "ADC"
+        ],
+        "Lux": [
+            "Sup",
+            "Mid"
+        ],
+        "Malphite": [
+            "Jng",
+            "Top"
+        ],
+        "Maokai": [
+            "Sup",
+            "ADC"
+        ],
+        "Mel": [
+            "Mid",
+            "Sup"
+        ],
+        "Milio": [
+            "ADC",
+            "Sup"
+        ],
+        "MonkeyKing": [
+            "Jng",
+            "Top"
+        ],
+        "Morgana": [
+            "Sup",
+            "Mid"
+        ],
+        "Naafiri": [
+            "Mid",
+            "Jng"
+        ],
+        "Nami": [
+            "ADC",
+            "Sup"
+        ],
+        "Nautilus": [
+            "Sup",
+            "ADC"
+        ],
+        "Neeko": [
+            "Sup",
+            "ADC"
+        ],
+        "Pantheon": [
+            "Sup",
+            "Jng"
+        ],
+        "Poppy": [
+            "Sup",
+            "Top"
+        ],
+        "Pyke": [
+            "Sup",
+            "ADC"
+        ],
+        "Qiyana": [
+            "Jng",
+            "Mid"
+        ],
+        "Quinn": [
+            "Top",
+            "Mid"
+        ],
+        "Rakan": [
+            "Sup",
+            "ADC"
+        ],
+        "RekSai": [
+            "Jng",
+            "Top"
+        ],
+        "Rell": [
+            "Sup",
+            "ADC"
+        ],
+        "Renata": [
+            "ADC",
+            "Sup"
+        ],
+        "Rengar": [
+            "Jng",
+            "Top"
+        ],
+        "Riven": [
+            "Top",
+            "Jng"
+        ],
+        "Ryze": [
+            "Mid",
+            "Top"
+        ],
+        "Sejuani": [
+            "Jng",
+            "Top"
+        ],
+        "Senna": [
+            "ADC",
+            "Sup"
+        ],
+        "Seraphine": [
+            "Sup",
+            "ADC"
+        ],
+        "Shaco": [
+            "Jng",
+            "Sup"
+        ],
+        "Shyvana": [
+            "Jng",
+            "Top"
+        ],
+        "Skarner": [
+            "Jng",
+            "Top"
+        ],
+        "Sona": [
+            "Sup",
+            "ADC"
+        ],
+        "Soraka": [
+            "Sup",
+            "ADC"
+        ],
+        "Swain": [
+            "Sup",
+            "ADC"
+        ],
+        "Sylas": [
+            "Jng",
+            "Mid"
+        ],
+        "TahmKench": [
+            "Sup",
+            "Top"
+        ],
+        "Taliyah": [
+            "Mid",
+            "Jng"
+        ],
+        "Talon": [
+            "Jng",
+            "Mid"
+        ],
+        "Taric": [
+            "ADC",
+            "Sup"
+        ],
+        "Teemo": [
+            "Top",
+            "Jng"
+        ],
+        "Thresh": [
+            "Sup",
+            "ADC"
+        ],
+        "Tristana": [
+            "ADC",
+            "Mid"
+        ],
+        "Trundle": [
+            "Jng",
+            "Top"
+        ],
+        "Tryndamere": [
+            "Top",
+            "Jng"
+        ],
+        "Udyr": [
+            "Jng",
+            "Top"
+        ],
+        "Varus": [
+            "ADC",
+            "Top"
+        ],
+        "Vayne": [
+            "ADC",
+            "Top"
+        ],
+        "Velkoz": [
+            "Sup",
+            "ADC"
+        ],
+        "Vladimir": [
+            "Top",
+            "Mid"
+        ],
+        "Volibear": [
+            "Top",
+            "Jng"
+        ],
+        "Warwick": [
+            "Jng",
+            "Top"
+        ],
+        "Xerath": [
+            "Mid",
+            "Sup"
+        ],
+        "Yasuo": [
+            "Mid",
+            "Top"
+        ],
+        "Yone": [
+            "Mid",
+            "Top"
+        ],
+        "Yuumi": [
+            "Sup",
+            "ADC"
+        ],
+        "Zaahen": [
+            "Top",
+            "Jng"
+        ],
+        "Zed": [
+            "Mid",
+            "Jng"
+        ],
+        "Ziggs": [
+            "ADC",
+            "Mid"
+        ],
+        "Zilean": [
+            "Sup",
+            "ADC"
+        ],
+        "Zyra": [
+            "Sup",
+            "ADC"
+        ]
+    }
+}

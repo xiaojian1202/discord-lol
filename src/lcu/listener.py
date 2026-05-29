@@ -8,6 +8,7 @@ class LCUListener:
         self.connector: Optional[Connector] = None
         self.on_enemy_pick = on_enemy_pick
         self.last_enemy_pick: Optional[int] = None
+        self.last_action_id: Optional[int] = None
         self.current_session: Dict = {}
 
     def _setup_connector(self):
@@ -38,6 +39,7 @@ class LCUListener:
     async def _on_close(self, connection):
         logging.info("League Client closed. Waiting for reconnect...")
         self.last_enemy_pick = None
+        self.last_action_id = None
         self.current_session = {}
 
     async def _on_session_update(self, connection, event):
@@ -45,52 +47,78 @@ class LCUListener:
         if hasattr(event, 'type') and event.type == 'Delete':
             logging.info("Champion Select session ended.")
             self.last_enemy_pick = None
+            self.last_action_id = None
             self.current_session = {}
             return
 
         data = event.data
         if not data:
-            # If data is empty, it might mean the lobby was dodged or ended
             if self.current_session:
                 logging.info("Champion Select session cleared.")
                 self.last_enemy_pick = None
+                self.last_action_id = None
                 self.current_session = {}
             return
             
         self.current_session = data
         
         try:
-            if self.is_new_enemy_pick(data):
-                logging.info(f"New enemy pick detected: {self.last_enemy_pick}")
+            update_reason = self.check_for_updates(data)
+            if update_reason:
+                logging.info(f"Draft update detected: {update_reason}")
                 if self.on_enemy_pick:
                     state = self.parse_session(data)
-                    if asyncio.iscoroutinefunction(self.on_enemy_pick):
-                        await self.on_enemy_pick(state)
+                    # Pass target_role if it's our turn
+                    if update_reason == "our_turn":
+                        target_role = state.get("target_role")
+                        if asyncio.iscoroutinefunction(self.on_enemy_pick):
+                            await self.on_enemy_pick(state, target_role=target_role)
+                        else:
+                            self.on_enemy_pick(state, target_role=target_role)
                     else:
-                        self.on_enemy_pick(state)
+                        if asyncio.iscoroutinefunction(self.on_enemy_pick):
+                            await self.on_enemy_pick(state)
+                        else:
+                            self.on_enemy_pick(state)
         except Exception as e:
             logging.error(f"Error processing session update: {e}")
 
-    def is_new_enemy_pick(self, data: Dict) -> bool:
+    def check_for_updates(self, data: Dict) -> Optional[str]:
         """
-        Detects if a new enemy champion has been locked in.
+        Detects if a new enemy pick or if it's the user's turn.
+        Returns the reason for update, or None.
         """
-        # Look through actions for completed enemy picks
+        local_cell_id = data.get('localPlayerCellId')
+        actions = data.get('actions', [])
+        
+        # 1. Check for new enemy picks
         enemy_picks = []
-        for action_group in data.get('actions', []):
+        for action_group in actions:
             for action in action_group:
                 if action['type'] == 'pick' and action['completed'] and not action['isAllyAction']:
                     enemy_picks.append(action['championId'])
         
-        if not enemy_picks:
-            return False
-            
-        latest_pick = enemy_picks[-1]
-        if latest_pick != self.last_enemy_pick and latest_pick != 0:
-            self.last_enemy_pick = latest_pick
-            return True
-            
-        return False
+        if enemy_picks:
+            latest_pick = enemy_picks[-1]
+            if latest_pick != self.last_enemy_pick and latest_pick != 0:
+                self.last_enemy_pick = latest_pick
+                return "enemy_pick"
+
+        # 2. Check if it's our turn to pick
+        for action_group in actions:
+            for action in action_group:
+                # If it's a pick action for us, and it's active (not completed)
+                # In LCU, isInProgress might not be reliable, but actorCellId matches 
+                # and it's the first non-completed pick action in the sequence.
+                if action['actorCellId'] == local_cell_id and action['type'] == 'pick' and not action['completed']:
+                    # We need to make sure this is the *current* active action
+                    # LCU session has 'timer' which can help, but usually 
+                    # there's only one active action group.
+                    if action['id'] != self.last_action_id:
+                        self.last_action_id = action['id']
+                        return "our_turn"
+        
+        return None
 
     def parse_session(self, data: Dict) -> Dict:
         """
@@ -104,25 +132,33 @@ class LCUListener:
             "utility": "Sup"
         }
 
-        def get_team_roles(team_data):
+        local_cell_id = data.get('localPlayerCellId')
+        target_role = None
+
+        def get_team_roles(team_data, is_our_team=False):
+            nonlocal target_role
             team_dict = {}
             for p in team_data:
                 cid = p.get('championId', 0)
                 pos = p.get('assignedPosition', '').lower()
-                if cid != 0 and pos in role_map:
-                    team_dict[role_map[pos]] = cid
-                elif cid != 0:
-                    # Fallback for modes without assigned positions
-                    team_dict[f"Pick_{p.get('cellId')}"] = cid
+                role_name = role_map.get(pos, f"Pick_{p.get('cellId')}")
+                
+                if cid != 0:
+                    team_dict[role_name] = cid
+                
+                if is_our_team and p.get('cellId') == local_cell_id:
+                    target_role = role_map.get(pos)
+                    
             return team_dict
 
-        our_team = get_team_roles(data.get('myTeam', []))
+        our_team = get_team_roles(data.get('myTeam', []), is_our_team=True)
         enemy_team = get_team_roles(data.get('theirTeam', []))
         
         return {
             "our_team": our_team,
             "enemy_team": enemy_team,
-            "last_enemy_pick": self.last_enemy_pick
+            "last_enemy_pick": self.last_enemy_pick,
+            "target_role": target_role
         }
 
     def start(self):

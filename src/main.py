@@ -22,19 +22,7 @@ class Orchestrator:
         self.name_cache: Dict[int, str] = {}
 
     async def handle_enemy_pick(self, state: dict, target_role: Optional[str] = None):
-        last_pick_id = state.get("last_enemy_pick")
-        # If we have a target_role, we might not have a last_enemy_pick (e.g. if we are first and asking for advice)
-        # but for now logic is triggered on pick.
-        
-        champion_name = None
-        if last_pick_id:
-            champion_name = self.resolve_champion_name(last_pick_id)
-            if champion_name:
-                logging.info(f"Processing recommendation for enemy pick: {champion_name}")
-            else:
-                logging.warning(f"Could not resolve champion name for ID: {last_pick_id}")
-
-        # 2. Convert ID dictionaries to name dictionaries
+        # 1. Resolve names for teams
         our_team_ids = state.get("our_team", {})
         enemy_team_ids = state.get("enemy_team", {})
         
@@ -45,22 +33,33 @@ class Orchestrator:
         our_team_names = {r: n for r, n in our_team_names.items() if n}
         enemy_team_names = {r: n for r, n in enemy_team_names.items() if n}
 
-        # 3. Get top counters from SQLite for the last enemy pick
-        counters = []
-        if champion_name:
-            counters = get_counters(champion_name, db_path=self.db_path)
+        # If target_role is passed from listener, use it
+        target_role = target_role or state.get("target_role")
+
+        # 2. Get top counters from SQLite for ALL enemy picks
+        all_counters = []
+        seen_counters = set()
+        for enemy_role, enemy_name in enemy_team_names.items():
+            # Get top 3 counters per enemy pick to keep the prompt size reasonable
+            enemy_counters = get_counters(enemy_name, db_path=self.db_path, limit=3)
+            for c in enemy_counters:
+                if c['name'] not in seen_counters:
+                    # Enrich counter info with which champion it counters
+                    c['counters_who'] = enemy_name
+                    all_counters.append(c)
+                    seen_counters.add(c['name'])
         
-        # 4. Generate AI recommendation
+        # 3. Generate AI recommendation
         try:
             recommendation = get_ai_recommendation(
                 our_team_names, 
                 enemy_team_names, 
-                counters, 
+                all_counters, 
                 target_role=target_role
             )
             logging.info(f"AI Recommendation: {recommendation}")
             
-            # 5. Send to Discord
+            # 4. Send to Discord
             send_discord_message(recommendation)
         except Exception as e:
             logging.error(f"Error generating or sending recommendation: {e}")

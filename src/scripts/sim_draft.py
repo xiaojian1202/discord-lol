@@ -10,14 +10,18 @@ from src.database.query import get_counters
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Viable Champions per Role (Popular examples)
-ROLE_CHAMPIONS = {
-    "Top": ["Darius", "Garen", "Fiora", "Jax", "Malphite", "Aatrox", "Camille", "Sett", "Mordekaiser", "Ornn"],
-    "Jng": ["Lee Sin", "Jarvan IV", "Vi", "Kha'Zix", "Sejuani", "Zac", "Elise", "Hecarim", "Kayn", "Kindred"],
-    "Mid": ["Ahri", "Zed", "Yasuo", "Orianna", "Syndra", "LeBlanc", "Katarina", "Viktor", "Akali", "Annie"],
-    "ADC": ["Caitlyn", "Ezreal", "Kai'Sa", "Jinx", "Vayne", "Lucian", "Ashe", "Jhin", "Tristana", "Miss Fortune"],
-    "Sup": ["Thresh", "Lulu", "Leona", "Nami", "Blitzcrank", "Morgana", "Janna", "Pyke", "Karma", "Nautilus"]
-}
+import json
+
+# Load Role Data from JSON
+try:
+    with open('src/scripts/role_data.json', 'r') as f:
+        ROLE_DATA = json.load(f)
+        ROLE_CHAMPIONS = ROLE_DATA['ROLE_CHAMPIONS']
+        FLEX_CHAMPIONS = ROLE_DATA['FLEX_CHAMPIONS']
+except FileNotFoundError:
+    logging.warning("role_data.json not found. Run analyze_roles.py first. Using empty defaults.")
+    ROLE_CHAMPIONS = {r: [] for r in ["Top", "Jng", "Mid", "ADC", "Sup"]}
+    FLEX_CHAMPIONS = {}
 
 ROLES = ["Top", "Jng", "Mid", "ADC", "Sup"]
 
@@ -27,11 +31,18 @@ class DraftSimulator:
         self.db_path = self.orchestrator.db_path
         self.blue_team = {}  # role -> champion_name
         self.red_team = {}   # role -> champion_name
+        self.blue_bans = []
+        self.red_bans = []
+        
+        # In a real game, you only know your own team's roles for sure (due to LCU)
+        # For the enemy, you just see a list of champions picked.
+        self.enemy_picks = [] # List of champion names in order picked
+        
         self.user_team = ""  # "Blue" or "Red"
         self.user_lane = ""
         self.user_slot = -1  # 0-4
+        self.enable_bans = False
         
-        # Mapping names to IDs for Orchestrator
         self.name_to_id = self._load_champion_ids()
 
     def _load_champion_ids(self) -> Dict[str, int]:
@@ -47,34 +58,89 @@ class DraftSimulator:
     def get_id(self, name: str) -> int:
         return self.name_to_id.get(name, 0)
 
-    def get_viable_pick(self, role: str, team: Dict[str, str], opponent_team: Dict[str, str]) -> str:
-        """Determines a pick based on role and opponent."""
-        # Check if opponent in the same lane has picked
-        opponent_pick = opponent_team.get(role)
+    def predict_enemy_roles(self, enemy_picks: List[str]) -> Dict[str, str]:
+        """
+        Attempts to assign roles to enemy picks based on typical roles and flex potential.
+        Returns a dict of role -> champion_name.
+        """
+        assigned = {}
+        unassigned = enemy_picks.copy()
+        remaining_roles = set(ROLES)
+
+        # 1. First, assign obvious single-role champions
+        for champ in unassigned[:]:
+            primary_roles = [role for role, champs in ROLE_CHAMPIONS.items() if champ in champs]
+            if len(primary_roles) == 1 and primary_roles[0] in remaining_roles:
+                assigned[primary_roles[0]] = champ
+                unassigned.remove(champ)
+                remaining_roles.remove(primary_roles[0])
+
+        # 2. Handle Flex picks with the remaining roles
+        for champ in unassigned[:]:
+            potential = FLEX_CHAMPIONS.get(champ, [])
+            valid_potential = [r for r in potential if r in remaining_roles]
+            if valid_potential:
+                role = valid_potential[0] # Greedy assignment
+                assigned[role] = champ
+                unassigned.remove(champ)
+                remaining_roles.remove(role)
+
+        # 3. Fill the rest by checking any role they might fit
+        for champ in unassigned[:]:
+            for role in list(remaining_roles):
+                if champ in ROLE_CHAMPIONS.get(role, []):
+                    assigned[role] = champ
+                    unassigned.remove(champ)
+                    remaining_roles.remove(role)
+                    break
+        
+        # 4. Total fallback for unknown or weird picks
+        for champ in unassigned:
+            if remaining_roles:
+                role = list(remaining_roles)[0]
+                assigned[role] = champ
+                remaining_roles.remove(role)
+
+        return assigned
+
+    def get_viable_pick(self, role: str, team_picks: List[str], opponent_picks: List[str], is_ban: bool = False) -> str:
+        """Determines a pick or ban."""
+        all_picked = team_picks + opponent_picks + self.blue_bans + self.red_bans
+        
+        if is_ban:
+            return random.choice([c for c in ROLE_CHAMPIONS[role] if c not in all_picked])
+
+        # For bots, we still want them to pick something sensible for their role
+        # even if the 'enemy' doesn't know what role they are.
+        # Check if we can find an opponent likely in our lane
+        predicted_opponents = self.predict_enemy_roles(opponent_picks)
+        opponent_pick = predicted_opponents.get(role)
         
         if opponent_pick:
-            # Try to counterpick using DB
             counters = get_counters(opponent_pick, db_path=self.db_path, limit=10)
             if counters:
-                # Filter counters to only include those viable for the role
                 role_viable = ROLE_CHAMPIONS[role]
                 potential_counters = [c['name'] for c in counters if c['name'] in role_viable]
-                
-                # Exclude already picked champions
-                all_picked = list(self.blue_team.values()) + list(self.red_team.values())
                 available = [c for c in potential_counters if c not in all_picked]
-                
                 if available:
-                    return random.choice(available[:3]) # Pick from top 3 available counters
+                    return random.choice(available[:3])
 
-        # Default: Pick a random viable champion for the role that hasn't been picked
-        all_picked = list(self.blue_team.values()) + list(self.red_team.values())
         available = [c for c in ROLE_CHAMPIONS[role] if c not in all_picked]
+        # Occasionally pick a flex champion to make it interesting
+        if not is_ban and random.random() < 0.3:
+            flex_options = [c for c in FLEX_CHAMPIONS.keys() if c in available]
+            if flex_options:
+                return random.choice(flex_options)
+
         return random.choice(available) if available else "Unknown"
 
     async def run(self):
-        print("=== League of Legends Draft Simulator ===")
+        print("=== League of Legends Draft Simulator (Role Ambiguity Mode) ===")
         
+        # 0. Configuration
+        ban_choice = input("Enable Ban Phase? (y/n): ").lower()
+        self.enable_bans = ban_choice == 'y'
+
         # 1. Lane Selection
         while True:
             choice = input(f"Select your lane ({', '.join(ROLES)}): ").strip().title()
@@ -86,110 +152,101 @@ class DraftSimulator:
             print("Invalid lane. Please try again.")
 
         # 2. Team and Slot Assignment
-        # User is never Blue 1 (First pick overall)
         self.user_team = random.choice(["Blue", "Red"])
-        if self.user_team == "Blue":
-            self.user_slot = random.randint(1, 4) # Slots 1-4 (B2-B5)
-        else:
-            self.user_slot = random.randint(0, 4) # Slots 0-4 (R1-R5)
-
-        print(f"\nYou are on the {self.user_team} Team playing {self.user_lane}!")
         
-        # Randomize lanes for bots
+        # Randomize lanes for bots (Internal knowledge)
         blue_lanes = ROLES.copy()
         random.shuffle(blue_lanes)
         red_lanes = ROLES.copy()
         random.shuffle(red_lanes)
 
-        # Map pick slots to (Team, Role)
-        # B1, R1-R2, B2-B3, R3-R4, B4-B5, R5
-        draft_order = [
-            ("Blue", 0), 
-            ("Red", 0), ("Red", 1), 
-            ("Blue", 1), ("Blue", 2),
-            ("Red", 2), ("Red", 3),
-            ("Blue", 3), ("Blue", 4),
-            ("Red", 4)
-        ]
+        # Standard Tournament Draft Order
+        draft_sequence = []
+        if self.enable_bans:
+            draft_sequence += [("Ban", "Blue", 0), ("Ban", "Red", 0), ("Ban", "Blue", 1), ("Ban", "Red", 1), ("Ban", "Blue", 2), ("Ban", "Red", 2)]
+        draft_sequence += [("Pick", "Blue", 0), ("Pick", "Red", 0), ("Pick", "Red", 1), ("Pick", "Blue", 1), ("Pick", "Blue", 2), ("Pick", "Red", 2)]
+        if self.enable_bans:
+            draft_sequence += [("Ban", "Red", 3), ("Ban", "Blue", 3), ("Ban", "Red", 4), ("Ban", "Blue", 4)]
+        draft_sequence += [("Pick", "Red", 3), ("Pick", "Blue", 3), ("Pick", "Blue", 4), ("Pick", "Red", 4)]
 
-        # Process Draft
-        # Standard tournament draft order: B1, R1-R2, B2-B3, R3-R4, B4-B5, R5
-        draft_phases = [
-            [("Blue", 0)], # B1
-            [("Red", 0), ("Red", 1)], # R1-R2
-            [("Blue", 1), ("Blue", 2)], # B2-B3
-            [("Red", 2), ("Red", 3)], # R3-R4
-            [("Blue", 3), ("Blue", 4)], # B4-B5
-            [("Red", 4)] # R5
-        ]
+        total_actions = len(draft_sequence)
+        for i, (action_type, team_side, slot_index) in enumerate(draft_sequence):
+            is_our_side = (team_side == self.user_team)
+            
+            # Helper to get current lists
+            our_picks = list(self.blue_team.values()) if self.user_team == "Blue" else list(self.red_team.values())
+            enemy_picks = list(self.red_team.values()) if self.user_team == "Blue" else list(self.blue_team.values())
+            
+            ban_list = self.blue_bans if team_side == "Blue" else self.red_bans
+            current_lane = blue_lanes[slot_index] if team_side == "Blue" else red_lanes[slot_index]
 
-        total_picks = 0
-        for phase in draft_phases:
-            for team_side, slot_index in phase:
-                total_picks += 1
-                team_dict = self.blue_team if team_side == "Blue" else self.red_team
-                opp_dict = self.red_team if team_side == "Blue" else self.blue_team
-                current_lane = blue_lanes[slot_index] if team_side == "Blue" else red_lanes[slot_index]
+            print(f"\n[{i+1}/{total_actions}] {team_side} Team {action_type}...")
 
-                print(f"\n[{total_picks}/10] {team_side} Team is picking for {current_lane}...")
-
-                # Is it the user's turn?
-                if team_side == self.user_team and current_lane == self.user_lane:
-                    print(f"--> Generating recommendation for YOUR pick ({current_lane})...")
+            is_user_turn = (is_our_side and current_lane == self.user_lane)
+            
+            if action_type == "Ban":
+                if is_user_turn:
+                    ban = input(f"--> YOUR TURN! Enter your BAN for {current_lane}: ").strip().title()
+                    ban_list.append(ban)
+                else:
+                    ban = self.get_viable_pick(current_lane, our_picks, enemy_picks, is_ban=True)
+                    ban_list.append(ban)
+                    print(f"--> {team_side} Bot BANNED {ban}")
+            else:
+                # Pick logic
+                if is_user_turn:
+                    print(f"--> Generating recommendation for YOUR pick ({self.user_lane})...")
                     
-                    # Construct state for recommendation
-                    user_side_dict = self.blue_team if self.user_team == "Blue" else self.red_team
-                    enemy_side_dict = self.red_team if self.user_team == "Blue" else self.blue_team
+                    # USER only knows their team's lanes, and predicts enemy lanes
+                    predicted_enemy_team = self.predict_enemy_roles(enemy_picks)
                     
-                    # For User recommendation, there is no "last enemy pick" to counter, 
-                    # but there might be existing enemies. Construct state from user's perspective.
                     state = {
-                        "our_team": {role: self.get_id(champ) for role, champ in user_side_dict.items()},
-                        "enemy_team": {role: self.get_id(champ) for role, champ in enemy_side_dict.items()},
-                        "last_enemy_pick": None # Or use the most recent enemy pick if any
+                        "our_team": {role: self.get_id(champ) for role, champ in (self.blue_team if self.user_team == "Blue" else self.red_team).items()},
+                        "enemy_team": {role: self.get_id(champ) for role, champ in predicted_enemy_team.items()},
+                        "last_enemy_pick": self.get_id(enemy_picks[-1]) if enemy_picks else None
                     }
-                    
-                    # Trigger recommendation for the user's specific lane
-                    await self.orchestrator.handle_enemy_pick(state, target_role=current_lane)
+                    await self.orchestrator.handle_enemy_pick(state, target_role=self.user_lane)
                     
                     while True:
-                        pick = input(f"--> YOUR TURN! Enter your champion for {current_lane}: ").strip().title()
-                        # Handle some common name variations
+                        pick = input(f"--> YOUR TURN! Enter your champion for {self.user_lane}: ").strip().title()
                         if pick == "Kaisa": pick = "Kai'Sa"
                         if pick == "Khazix": pick = "Kha'Zix"
                         
-                        all_picked = list(self.blue_team.values()) + list(self.red_team.values())
+                        all_picked = list(self.blue_team.values()) + list(self.red_team.values()) + self.blue_bans + self.red_bans
                         if pick in all_picked:
-                            print(f"{pick} is already picked. Choose another.")
+                            print(f"{pick} is already picked/banned. Choose another.")
                         else:
-                            team_dict[current_lane] = pick
+                            if self.user_team == "Blue": self.blue_team[self.user_lane] = pick
+                            else: self.red_team[self.user_lane] = pick
                             break
                 else:
-                    # Bot pick
-                    pick = self.get_viable_pick(current_lane, team_dict, opp_dict)
-                    team_dict[current_lane] = pick
+                    # Bot pick logic (using internal lane knowledge)
+                    pick = self.get_viable_pick(current_lane, our_picks, enemy_picks)
+                    if team_side == "Blue": self.blue_team[current_lane] = pick
+                    else: self.red_team[current_lane] = pick
                     print(f"--> {team_side} Bot picked {pick}")
 
-                    # If it's an ENEMY pick, trigger Orchestrator recommendation for our team
-                    if team_side != self.user_team:
-                        user_side_dict = self.blue_team if self.user_team == "Blue" else self.red_team
-                        enemy_side_dict = self.red_team if self.user_team == "Blue" else self.blue_team
+                    # If it was an enemy pick, trigger recommendation
+                    if not is_our_side:
+                        updated_enemy_picks = list(self.red_team.values()) if self.user_team == "Blue" else list(self.blue_team.values())
+                        predicted_enemy_team = self.predict_enemy_roles(updated_enemy_picks)
                         
-                        real_state = {
-                            "our_team": {role: self.get_id(champ) for role, champ in user_side_dict.items()},
-                            "enemy_team": {role: self.get_id(champ) for role, champ in enemy_side_dict.items()},
+                        state_for_orch = {
+                            "our_team": {role: self.get_id(champ) for role, champ in (self.blue_team if self.user_team == "Blue" else self.red_team).items()},
+                            "enemy_team": {role: self.get_id(champ) for role, champ in predicted_enemy_team.items()},
                             "last_enemy_pick": self.get_id(pick)
                         }
-                        await self.orchestrator.handle_enemy_pick(real_state)
-                
-                # If there's only one pick in this phase, or it's the last pick of a double-pick phase, pause.
-                # However, the user requested a pause after EVERY lock in.
-                print("Waiting 5 seconds for draft to stabilize...")
-                await asyncio.sleep(5)
+                        await self.orchestrator.handle_enemy_pick(state_for_orch)
+            
+            await asyncio.sleep(1)
 
         print("\n=== Draft Summary ===")
-        print(f"Blue Team: {', '.join([f'{r}: {c}' for r, c in self.blue_team.items()])}")
-        print(f"Red Team:  {', '.join([f'{r}: {c}' for r, c in self.red_team.items()])}")
+        print(f"Blue Bans: {', '.join(self.blue_bans)}")
+        print(f"Red Bans:  {', '.join(self.red_bans)}")
+        blue_pick_str = ", ".join([f"{r}: {c}" for r, c in self.blue_team.items()])
+        red_pick_str = ", ".join([f"{r}: {c}" for r, c in self.red_team.items()])
+        print(f"Blue Team: {blue_pick_str}")
+        print(f"Red Team:  {red_pick_str}")
         print("======================")
 
 if __name__ == "__main__":
