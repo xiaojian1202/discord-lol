@@ -53,7 +53,7 @@ The system is verified through a comprehensive test suite targeting core logic:
 
 ## Demo Video
 
-[Watch the Project Demo on YouTube](https://youtu.be/2HyEu-uHsyA)
+[Watch the Project Demo on YouTube](https://youtu.be/2HyEu-uHsyA) May want to speed up video because it's long!
 
 ## Setup & Installation
 
